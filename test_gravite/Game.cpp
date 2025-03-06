@@ -2,10 +2,18 @@
 
 Game::Game() : window(sf::VideoMode(WIDTH, HEIGHT), "tests gravite") {
 	window.setFramerateLimit(60);
-	platform = Platform(0, 550, 800, 20);
+	view.setSize(window.getSize().x, window.getSize().y);
+	view.setCenter(player.getShape().getPosition());
+
+}
+
+void Game::addPlatform(float x, float y, float width, float height) {
+	platforms.push_back(Platform(x, y, width, height));
 }
 
 void Game::run() {
+	addPlatform(0, 550, 800, 20);
+	addPlatform(300, 400, 500, 20);
 	while (window.isOpen()) {
 		processEvents();
 		update();
@@ -23,13 +31,25 @@ void Game::processEvents() {
 }
 
 void Game::update() {
-	player.update(platform, window);
+
+	player.update(platforms, window, view);
+	view.setCenter(player.getShape().getPosition());
 }
 
 void Game::render() {
 	window.clear();
+
 	window.draw(player.getShape());
 	window.draw(player.getShapeAtk());
-	window.draw(platform.getShape());
+	window.draw(player.getShapeSmoke());
+	window.draw(player.getShapeHUDEnergy());
+	window.draw(player.getShapeFillEnergy());
+
+	for (auto platform : platforms) {
+		window.draw(platform.getShape());
+	}
+
+	window.setView(view);
+	
 	window.display();
 }
