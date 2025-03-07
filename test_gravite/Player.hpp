@@ -15,7 +15,7 @@ public:
 	void deplacement();
 	void border();
 	void collide(const std::vector<Platform>& platforms);
-	void attack();
+	float attack();
 	void rangedAttack(sf::RenderWindow& window);
 	void updateHUDEnergy(sf::View& view);
 
@@ -27,6 +27,10 @@ public:
 
 private:
 	sf::RectangleShape shape, shapeAtk, shapeRangedAtk, shapeSmoke, shapeEnergy, shapeFillEnergy;
+	sf::Clock attackClock;
+	sf::Clock attackDurationClock;
+
+
 	float velocityY;
 	float gravity;
 	bool isOnGround;
@@ -35,11 +39,14 @@ private:
 	bool canJump;
 	bool lastDepIsLeft;
 
-	float jetpackEnergy;
+	float energy;
 	float maxJetpackEnergy;
 	float jetpackPower;
 	float energyConsumption;
 	float energyRecharge;
+	float damage;
+
+	int hp;
 
 	std::vector<Projectiles> projectiles;
 };

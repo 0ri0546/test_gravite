@@ -8,64 +8,60 @@ Player::Player() {
 	gravity = 0.5f;
 	isOnGround = false;
 
-	//jumpCount = maxJumps;
-	//canJump = true;
+	jumpCount = maxJumps;
+	canJump = true;
 
 	lastDepIsLeft = true;
 
-	jetpackEnergy = 1000.f;
-	maxJetpackEnergy = 1000.f;
+	energy = 100.f;
+	maxJetpackEnergy = 100.f;
 	jetpackPower = -3.f;
-	energyConsumption = 0.5f;
-	energyRecharge = 0.1f;
+	energyConsumption = 10.f;
+	energyRecharge = 1.f;
 
 	shapeEnergy.setSize(sf::Vector2f(100, 30));
 	shapeEnergy.setFillColor(sf::Color::Transparent);
 	shapeEnergy.setOutlineColor(sf::Color::White);
 	shapeEnergy.setOutlineThickness(2);
 	shapeEnergy.setPosition(20, 20);
+
+	damage = 15;
+	hp = 100;
 }
 
 void Player::update(const std::vector<Platform>& platforms, sf::RenderWindow& window, sf::View& view) {
 	border();
 	collide(platforms);
-	//jump();
-	useJetpack();
+	jump();
+	//useJetpack();
 	deplacement();
 	attack();
-	rangedAttack(window);
+	//rangedAttack(window);
 	//std::cout << "Nombre de projectiles : " << projectiles.size() << std::endl;
 
 	updateHUDEnergy(view);
-	std::cout << "Énergie du Jetpack : " << jetpackEnergy << std::endl;
+	std::cout << "energie : " << energy << std::endl;
 }
 
 void Player::jump() {
 	if (!isOnGround) {
 		velocityY += gravity;
 	}
+	else {
+		jumpCount = maxJumps;
+	}
 
 	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space) && jumpCount > 0 && canJump) {
 		velocityY = -10.0f;
 		jumpCount--;
 		canJump = false;
+		if (jumpCount == 0) {
+			energy -= energyConsumption;
+		}
+		
 	}
 
-	if (!sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
-		canJump = true;
-	}
-
-	shape.move(0, velocityY);
-}
-
-void Player::useJetpack() {
-	if (!isOnGround) {
-		velocityY += gravity;
-	}
-	shapeSmoke.setPosition(9999, 9999);
-	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space) && jetpackEnergy > energyConsumption) {
-		velocityY = jetpackPower; 
-		jetpackEnergy -= energyConsumption;
+	if (jumpCount == 0) { //pour la fumée
 		shapeSmoke.setSize(sf::Vector2f(30, 50));
 		shapeSmoke.setFillColor(sf::Color::Yellow);
 		if (lastDepIsLeft) {
@@ -75,18 +71,49 @@ void Player::useJetpack() {
 			shapeSmoke.setPosition(shape.getPosition().x - 30 + shape.getSize().x / 2, shape.getPosition().y + 30);
 		}
 	}
-	else if (!sf::Keyboard::isKeyPressed(sf::Keyboard::Space) && jetpackEnergy < maxJetpackEnergy) {
-		jetpackEnergy += energyRecharge; 
+	else {
+		shapeSmoke.setPosition(9999, 9999);
 	}
 
-	if (jetpackEnergy > maxJetpackEnergy) {
-		jetpackEnergy = maxJetpackEnergy;
+	if (!sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
+		canJump = true;
+		if (energy < maxJetpackEnergy) {
+			energy += energyRecharge;
+		}
 	}
 
 	shape.move(0, velocityY);
 }
 
-void Player::collide(const std::vector<Platform>& platforms) {
+void Player::useJetpack() { // pas utilisé, remplacé par le double jump
+	if (!isOnGround) {
+		velocityY += gravity;
+	}
+	shapeSmoke.setPosition(9999, 9999);
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space) && energy > energyConsumption) {
+		velocityY = jetpackPower; 
+		energy -= energyConsumption;
+		shapeSmoke.setSize(sf::Vector2f(30, 50));
+		shapeSmoke.setFillColor(sf::Color::Yellow);
+		if (lastDepIsLeft) {
+			shapeSmoke.setPosition(shape.getPosition().x + shape.getSize().x / 2, shape.getPosition().y + 30);
+		}
+		else {
+			shapeSmoke.setPosition(shape.getPosition().x - 30 + shape.getSize().x / 2, shape.getPosition().y + 30);
+		}
+	}
+	else if (!sf::Keyboard::isKeyPressed(sf::Keyboard::Space) && energy < maxJetpackEnergy) {
+		energy += energyRecharge; 
+	}
+
+	if (energy > maxJetpackEnergy) {
+		energy = maxJetpackEnergy;
+	}
+
+	shape.move(0, velocityY);
+}
+
+void Player::collide(const std::vector<Platform>& platforms) { //collision joueur/platforms
 	isOnGround = false;
 
 	for (const auto& platform : platforms) {
@@ -145,41 +172,52 @@ void Player::border() {
 	}
 }
 
-void Player::attack() {
-	shapeAtk.setSize(sf::Vector2f(1, 1));
-	shapeAtk.setFillColor(sf::Color::Transparent);
-	shapeAtk.setPosition(9999, 9999);
-
-	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Z) && jetpackEnergy > 1) {
-		shapeAtk.setSize(sf::Vector2f(30, 50));
-		shapeAtk.setFillColor(sf::Color::Blue);
-		if (lastDepIsLeft) {
-			shapeAtk.setPosition(shape.getPosition().x - 30, shape.getPosition().y);
-		}
-		else {
-			shapeAtk.setPosition(shape.getPosition().x + shape.getSize().x, shape.getPosition().y);
-		}
-		jetpackEnergy -= 1.0;
+float Player::attack() {
+	float shortRangeDamage = 0.f;
+	if (lastDepIsLeft) {
+		shapeAtk.setPosition(shape.getPosition().x - 30, shape.getPosition().y);
 	}
+	else {
+		shapeAtk.setPosition(shape.getPosition().x + shape.getSize().x, shape.getPosition().y);
+	}
+
+	if (attackClock.getElapsedTime().asSeconds() >= 0.5f) {
+		if (sf::Keyboard::isKeyPressed(sf::Keyboard::Z) && energy > 1) {
+			shortRangeDamage = damage;
+			shapeAtk.setSize(sf::Vector2f(30, 50));
+			shapeAtk.setFillColor(sf::Color::Blue);
+
+			energy -= 5.0;
+			attackClock.restart();
+			attackDurationClock.restart();
+		}
+	}
+
+	if (attackDurationClock.getElapsedTime().asSeconds() >= 1.0f) { //valeur modifiable selon l'animation de l'attaque
+		shapeAtk.setSize(sf::Vector2f(1, 1));
+		shapeAtk.setFillColor(sf::Color::Transparent);
+	}
+
+	return shortRangeDamage;
 }
 
-void Player::rangedAttack(sf::RenderWindow& window) {
-	if (sf::Keyboard::isKeyPressed(sf::Keyboard::X)) {
-		projectiles.push_back(Projectiles(lastDepIsLeft, shape));
-	}
-
-	for (auto& projectile : projectiles) {
-		projectile.update();
-		std::cout << "Projectile position: " << projectile.getShape().getPosition().x << ", " << projectile.getShape().getPosition().y << std::endl;
-		window.draw(projectile.getShape());
-	}
-
-
-	projectiles.erase(std::remove_if(projectiles.begin(), projectiles.end(), [](const Projectiles& p) {
-		return p.getShape().getPosition().x < 0 || p.getShape().getPosition().x > WIDTH;
-		}), projectiles.end());
-
-}
+//void Player::rangedAttack(sf::RenderWindow& window) { 
+//	if (sf::Keyboard::isKeyPressed(sf::Keyboard::X)) {
+//		projectiles.push_back(Projectiles(lastDepIsLeft, shape));
+//	}
+//
+//	for (auto& projectile : projectiles) {
+//		projectile.update();
+//		std::cout << "Projectile position: " << projectile.getShape().getPosition().x << ", " << projectile.getShape().getPosition().y << std::endl;
+//		window.draw(projectile.getShape());
+//	}
+//
+//
+//	projectiles.erase(std::remove_if(projectiles.begin(), projectiles.end(), [](const Projectiles& p) {
+//		return p.getShape().getPosition().x < 0 || p.getShape().getPosition().x > WIDTH;
+//		}), projectiles.end());
+//
+//}
 
 void Player::updateHUDEnergy(sf::View& view) {
 	sf::Vector2f viewCenter = view.getCenter();
@@ -188,14 +226,12 @@ void Player::updateHUDEnergy(sf::View& view) {
 	float hudX = viewCenter.x - (viewSize.x / 2) + 20;
 	float hudY = viewCenter.y - (viewSize.y / 2) + 20;
 
-	shapeFillEnergy.setSize(sf::Vector2f((jetpackEnergy / maxJetpackEnergy) * 100, 30));
+	shapeFillEnergy.setSize(sf::Vector2f((energy / maxJetpackEnergy) * 100, 30));
 	shapeFillEnergy.setFillColor(sf::Color::Green);
 
 	shapeEnergy.setPosition(hudX, hudY);
 	shapeFillEnergy.setPosition(hudX, hudY);
 
-
-	//shapeEnergy.setSize(sf::Vector2f((jetpackEnergy / maxJetpackEnergy) * 100, 30));
 }
 
 sf::RectangleShape Player::getShape() const {
